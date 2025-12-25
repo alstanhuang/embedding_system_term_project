@@ -1,0 +1,5 @@
+../Core/Src/sensor_io_bridge.c:16:6:SENSOR_IO_Init	4	static
+../Core/Src/sensor_io_bridge.c:24:6:SENSOR_IO_DeInit	4	static
+../Core/Src/sensor_io_bridge.c:35:6:SENSOR_IO_Write	32	static
+../Core/Src/sensor_io_bridge.c:46:9:SENSOR_IO_Read	40	static
+../Core/Src/sensor_io_bridge.c:61:10:SENSOR_IO_ReadMultiple	32	static
