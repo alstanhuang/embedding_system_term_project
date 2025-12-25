@@ -51,7 +51,6 @@ I2C_HandleTypeDef hi2c2;
 
 TIM_HandleTypeDef htim2;
 
-UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
@@ -64,7 +63,6 @@ static void MX_GPIO_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM2_Init(void);
-static void MX_UART4_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -110,10 +108,18 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C2_Init();
   MX_USART1_UART_Init();
+  
+  /* Early diagnostic - before any potentially blocking init */
+  setvbuf(stdout, NULL, _IONBF, 0);
+  printf("\r\n--- UART OK ---\r\n");
+  
   MX_TIM2_Init();
-  MX_UART4_Init();
-  MX_UART4_Init();
+  printf("--- TIM2 OK ---\r\n");
+  
+  printf("--- Starting BlueNRG Init... ---\r\n");
   //MX_BlueNRG_MS_Init();
+  printf("--- BlueNRG SKIPPED ---\r\n");
+  
   /* USER CODE BEGIN 2 */
   BSP_LED_On(LED2); // Turn on LED to indicate power/boot
   printf("\r\nBOOT: System Started\r\n");
@@ -147,10 +153,6 @@ int main(void)
     float mx = m_axes_out.AXIS_X;
     float my = m_axes_out.AXIS_Y;
     float mz = m_axes_out.AXIS_Z;
-
-    float gx = g_axes_out.AXIS_X;
-    float gy = g_axes_out.AXIS_Y;
-    float gz = g_axes_out.AXIS_Z;
 
     /* 2. Calculate Pitch (Tilt up/down)
        Pitch is rotation around Y-axis mostly, or X depending on orientation.
@@ -192,24 +194,14 @@ int main(void)
     TIM2->CCR1 = pitch_pwm; // Channel 1 (D9)
     TIM2->CCR3 = yaw_pwm;   // Channel 3 (D10)
     
-    // Debug Output every 1 iterations (~5ms total)
+    // Debug Output every 10 iterations (~500ms)
     static int loop_count = 0;
-    if (++loop_count >= 1) {
-        printf("A: %ld,%ld,%ld | G: %ld,%ld,%ld\r\n", 
-               (long)ax, (long)ay, (long)az, (long)gx, (long)gy, (long)gz);
-        
-        // Send Raw Accel/Gyro to FPGA via UART4
-        // Format: $AX,AY,AZ,GX,GY,GZ\n
-        char send_buf[64];
-        int len = sprintf(send_buf, "$%ld,%ld,%ld,%ld,%ld,%ld\n", 
-                         (long)ax, (long)ay, (long)az, 
-                         (long)gx, (long)gy, (long)gz);
-        HAL_UART_Transmit(&huart4, (uint8_t*)send_buf, len, 100);
-        
+    if (++loop_count >= 10) {
+        printf("P: %ld deg (%ld) | Y: %ld deg (%ld)\r\n", (long)pitch_deg, pitch_pwm, (long)yaw_deg, yaw_pwm);
         loop_count = 0;
     }
     
-    HAL_Delay(2); // Reduced delay for higher frequency
+    HAL_Delay(50); // Small delay to not overwhelm servo
   }
   /* USER CODE END 3 */
 }
@@ -348,7 +340,7 @@ static void MX_TIM2_Init(void)
   }
   if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
   {
-     Error_Handler();
+    Error_Handler();
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
@@ -369,56 +361,9 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM2_Init 2 */
-  HAL_TIM_MspPostInit(&htim2);
+
   /* USER CODE END TIM2_Init 2 */
-
-}
-
-/**
-  * @brief UART4 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_UART4_Init(void)
-{
-
-  /* USER CODE BEGIN UART4_Init 0 */
-
-  /* USER CODE END UART4_Init 0 */
-
-  /* USER CODE BEGIN UART4_Init 1 */
-
-  /* USER CODE END UART4_Init 1 */
-  huart4.Instance = UART4;
-  huart4.Init.BaudRate = 115200;
-  huart4.Init.WordLength = UART_WORDLENGTH_8B;
-  huart4.Init.StopBits = UART_STOPBITS_1;
-  huart4.Init.Parity = UART_PARITY_NONE;
-  huart4.Init.Mode = UART_MODE_TX_RX;
-  huart4.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart4.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart4.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart4.Init.ClockPrescaler = UART_PRESCALER_DIV1;
-  huart4.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetTxFifoThreshold(&huart4, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetRxFifoThreshold(&huart4, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_DisableFifoMode(&huart4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN UART4_Init 2 */
-
-  /* USER CODE END UART4_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
 
 }
 
@@ -493,8 +438,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOE, ST25DV04K_RF_DISABLE_Pin|ISM43362_RST_Pin|ISM43362_SPI3_CSN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, ARD_D10_Pin|ARD_D4_Pin|ARD_D7_Pin|SPBTLE_RF_RST_Pin
-                          |ARD_D9_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, ARD_D4_Pin|ARD_D7_Pin|SPBTLE_RF_RST_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, ARD_D8_Pin|ISM43362_BOOT0_Pin|ISM43362_WAKEUP_Pin|SPSGRF_915_SDN_Pin
@@ -531,8 +475,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : ARD_D10_Pin ARD_D4_Pin ARD_D7_Pin SPBTLE_RF_RST_Pin
                            ARD_D9_Pin */
-  GPIO_InitStruct.Pin = ARD_D10_Pin|ARD_D4_Pin|ARD_D7_Pin|SPBTLE_RF_RST_Pin
-                          |ARD_D9_Pin;
+  GPIO_InitStruct.Pin = ARD_D4_Pin|ARD_D7_Pin|SPBTLE_RF_RST_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -650,24 +593,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(htim->Instance==TIM2)
-  {
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    /**TIM2 GPIO Configuration
-    PA15     ------> TIM2_CH1 (D9)
-    PA2      ------> TIM2_CH3 (D10)
-    */
-    GPIO_InitStruct.Pin = GPIO_PIN_15|GPIO_PIN_2;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    GPIO_InitStruct.Alternate = GPIO_AF1_TIM2;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-  }
-}
+
 /* USER CODE END 4 */
 
 /**

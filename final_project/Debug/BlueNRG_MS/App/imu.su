@@ -1,5 +1,5 @@
-../BlueNRG_MS/App/imu.c:40:6:IMU_Init	16	static
+../BlueNRG_MS/App/imu.c:41:6:IMU_Init	16	static
 ../BlueNRG_MS/App/imu.c:82:6:Update_Buffer	16	static
-../BlueNRG_MS/App/imu.c:94:6:Compute_Offsets	40	static
-../BlueNRG_MS/App/imu.c:121:6:Process_Signal	40	static
-../BlueNRG_MS/App/imu.c:155:6:IMU_RunStep	8	static
+../BlueNRG_MS/App/imu.c:94:6:Compute_Offsets	24	static
+../BlueNRG_MS/App/imu.c:114:6:Process_Signal	40	static
+../BlueNRG_MS/App/imu.c:140:6:IMU_RunStep	8	static
